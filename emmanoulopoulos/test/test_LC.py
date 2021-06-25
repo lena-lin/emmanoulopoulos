@@ -2,6 +2,7 @@
 from iminuit import Minuit
 from iminuit.cost import UnbinnedNLL, BinnedNLL
 import numpy as np
+import pytest
 from emmanoulopoulos.emmanoulopoulos_lc_simulation import power_spectral_density
 from scipy.stats import norm, poisson, lognorm, gamma
 
@@ -27,8 +28,23 @@ def test_create_lc(uneven_times, sample_fluxes_from_bending_PL):
     tbin = 2
     lc_original = LC(time=uneven_times, flux=sample_fluxes_from_bending_PL, errors=0.1*sample_fluxes_from_bending_PL, tbin=tbin)
     
-    assert lc_original.interp_length == int((uneven_times.max() - uneven_times.min()) / tbin)
-    assert lc_original.interp_length == 204  # results from drawn random number with fixed known seed!
+    assert lc_original.interp_length == int((uneven_times.max() - uneven_times.min()) / tbin) + 1
+    assert lc_original.interp_length == 205  # results from drawn random number with fixed known seed!
+
+
+def test_create_lc_bad_length(uneven_times, sample_fluxes_from_bending_PL, tbin):
+    from emmanoulopoulos.lightcurve import LC
+
+    with pytest.raises(ValueError) as err:
+        lc = LC(time=uneven_times[:-5], flux=sample_fluxes_from_bending_PL, errors=0.1*sample_fluxes_from_bending_PL, tbin=tbin)
+    assert err.type is ValueError
+
+
+def test_f_j(lc):
+    f_j = lc.f_j()
+    print(f_j)
+    assert f_j[0] == 0
+    assert len(f_j) == (lc.interp_length - lc.interp_length % 2) / 2 + 1
 
 
 def test_lc_periodogram(lc):

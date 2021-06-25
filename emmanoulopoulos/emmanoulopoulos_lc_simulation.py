@@ -8,8 +8,7 @@ from emmanoulopoulos.lightcurve import LC
 DEFAULT_RNG = np.random.default_rng(5)
 
 
-
-def timmer_koenig(lc, psd_model=power_spectral_density, red_noise_factor=1, alias_tbin=1):
+class TimmerKoenig:
     '''
     Simulate lightcurve from given power spectrum as proposed by Timmer & Koenig (https://arxiv.org/pdf/1305.0304.pdf , 1995)
     The resulting lightcurve represents only the given power spectral density (PSD)
@@ -20,65 +19,91 @@ def timmer_koenig(lc, psd_model=power_spectral_density, red_noise_factor=1, alia
         - Apply inverse FFT to obtain the simulated lightcurve (this lightcurve may have negative "flux points")
         (-Scale the simulated lightcurve to a desired mean and standard deviation, e.g. the ones from the original lightcurve)
     '''
-    psd_parameter = lc.psd_parameter.to_dict().copy()
-    t_bin = lc.tbin / alias_tbin
+    def __init__(self, psd_model=power_spectral_density, red_noise_factor=1, alias_tbin=1):
+        self.red_noise_factor = red_noise_factor
+        self.alias_tbin = alias_tbin
 
-    # set PSD parameter c (containing Poisson noise) to 0
-    # (https://arxiv.org/pdf/1305.0304.pdf page 3, section 2.1)
-    psd_parameter['c'] = 0
+    def sample_from_lc(self, lc):
+        psd_parameter = lc.psd_parameter.to_dict().copy()
+        t_bin = lc.tbin / self.alias_tbin
+        psd_parameter['c'] = 0
+        N = lc.interp_length
+        even_sampled_fluxes = self._run_timmer_koenig(psd_parameter, t_bin, N)
+        # scale fluxes to mean and std of original lightcurve
+        lightcurve = (even_sampled_fluxes - np.mean(even_sampled_fluxes)) / np.std(even_sampled_fluxes) * lc.interp_flux.std() + lc.interp_flux.mean()
 
-    N_red_noise = red_noise_factor * lc.interp_length * alias_tbin
-    j_max = int((N_red_noise - (N_red_noise % 2)) / 2)
+        lc_tk = LC(time=lc.interp_time, flux=lightcurve, tbin=lc.tbin)
     
-    freq = 1 / (N_red_noise * lc.tbin / alias_tbin) * np.arange(1, j_max + 1, 1)
-    PSD = power_spectral_density(freq, **psd_parameter)
+        return lc_tk
 
-    # sample real and imaginary part from normal distributions
-    # TK eq. 9 + page 709
-    norm = np.sqrt(PSD / 2)
-    real = rnd.normal(0, 1, j_max)
-    imag = rnd.normal(0, 1, j_max - 1)
-    
-    # if N_red_noise is even, the last sample represents the Nyquist frequency and the imaginary part must be 0
-    if N_red_noise % 2 == 0:
-        imag = np.append(imag, 0)
-        complex_numbers = norm * (real + 1j * imag)
 
-    else:
-        imag = np.append(imag, rnd.normal(0, 1, 1))
-        complex_numbers = norm * (real + 1j * imag)
+    def sample_from_psd(self, psd_parameter, tbin, N, mean=None, std=None, time=None):
+        lightcurve = self._run_timmer_koenig(psd_parameter, tbin, N)
+        if mean is not None and std is not None:
+            lightcurve = (lightcurve - np.mean(lightcurve)) / np.std(lightcurve) * std + mean
 
-    complex_numbers = np.append(0, complex_numbers)
-    
-    # inverse FFT of the sampled components to obtain the lightcurve of lenght N_red_noise
-    inverse_fft =  np.fft.irfft(complex_numbers, N_red_noise)
-    
-    # take subset of the long lightcurve of length N
-    if red_noise_factor > 1:
-        extract = rnd.randint(lc.interp_length * alias_tbin - 1, lc.interp_length * alias_tbin * (red_noise_factor - 1))
-        lightcurve = inverse_fft[extract : extract + lc.interp_length * alias_tbin]
-    else:
-        lightcurve = inverse_fft
+        if not time:
+            time = np.arange(0, N*tbin, tbin)
         
-    if alias_tbin != 1:
-        lightcurve = lightcurve[::alias_tbin]
+        lc_tk = LC(time=time, flux=lightcurve, tbin=tbin)
+
+        return lc_tk
+
+
+    def _run_timmer_koenig(self, psd_parameter, tbin, N):
+        # set PSD parameter c (containing Poisson noise) to 0
+        # (https://arxiv.org/pdf/1305.0304.pdf page 3, section 2.1)
+        psd_parameter['c'] = 0
+
+        N_red_noise = self.red_noise_factor * N * self.alias_tbin
+        j_max = int((N_red_noise - (N_red_noise % 2)) / 2)
         
-    # scale the flux values to the mean and standard deviation of the original lightcurve to avoid negative flux points
-    lightcurve = (lightcurve - np.mean(lightcurve)) / np.std(lightcurve) * lc.interp_flux.std() + lc.interp_flux.mean()
-    
-    # create new lightcurve from the simulated flux points
-    lc_tk = LC(time=lc.interp_time, flux=lightcurve, tbin=lc.tbin)
-    
-    return lc_tk
+        freq = 1 / (N_red_noise * tbin / self.alias_tbin) * np.arange(1, j_max + 1, 1)
+        PSD = power_spectral_density(freq, **psd_parameter)
+
+        # sample real and imaginary part from normal distributions
+        # TK eq. 9 + page 709
+        norm = np.sqrt(PSD / 2)
+        real = rnd.normal(0, 1, j_max)
+        imag = rnd.normal(0, 1, j_max - 1)
+        
+        # if N_red_noise is even, the last sample represents the Nyquist frequency and the imaginary part must be 0
+        if N_red_noise % 2 == 0:
+            imag = np.append(imag, 0)
+            complex_numbers = norm * (real + 1j * imag)
+
+        else:
+            imag = np.append(imag, rnd.normal(0, 1, 1))
+            complex_numbers = norm * (real + 1j * imag)
+
+        complex_numbers = np.append(0, complex_numbers)
+        
+        # inverse FFT of the sampled components to obtain the lightcurve of lenght N_red_noise
+        inverse_fft =  np.fft.irfft(complex_numbers, N_red_noise)
+        
+        # take subset of the long lightcurve of length N
+        if self.red_noise_factor > 1:
+            extract = rnd.randint(N * self.alias_tbin - 1, N * self.alias_tbin * (self.red_noise_factor - 1))
+            lightcurve = inverse_fft[extract : extract + N * self.alias_tbin]
+        else:
+            lightcurve = inverse_fft
+            
+        if self.alias_tbin != 1:
+            lightcurve = lightcurve[::self.alias_tbin]
+
+        return lightcurve
 
 
 class Emmanoulopoulos_Sampler:
-    def __init__(self, lc, poisson_noise=True, tk_red_noise_factor=100):
-        self.lc = lc
+    def __init__(self, poisson_noise=True, tk_red_noise_factor=100, tk_alias_tbin=1, tk_mean=0, tk_std=1, tk_time=None):
         self.poisson_noise = poisson_noise
         self.tk_red_noise_factor = tk_red_noise_factor
-        
-    
+        self.tk_alias_tbin = tk_alias_tbin
+        self.tk_mean = tk_mean
+        self.tk_std = tk_std
+        self.time = tk_time
+
+
     def periodogram_from_fft(self, fft_comp, tbin, mean, N):
         return (2 * tbin) / (mean**2 * N) * np.abs(fft_comp)**2
 
@@ -88,6 +113,7 @@ class Emmanoulopoulos_Sampler:
 
     
     def fit_PSD(self, f_j, P_j):
+        print(len(f_j), len(P_j))
 
         nll = UnbinnedNLL(
             data=[f_j, P_j],
@@ -105,25 +131,44 @@ class Emmanoulopoulos_Sampler:
         m.migrad()
 
         return m.values
-        
-    
-    def simulate_lc(self):
-        
+
+
+    def sample_from_lc(self, lc):
+
         N = self.lc.interp_length
         tbin = self.lc.tbin
-        
         # produce Timmer&Koenig lightcurve representing the underlying PSD, but not PDF (step i)
-        lc_tk = timmer_koenig(self.lc, red_noise_factor=self.tk_red_noise_factor)
+        TK = TimmerKoenig(red_noise_factor=100)
+        lc_tk = TK.sample_from_lc(lc=self.lc)
+        lc_sim = self.simulate_lc(lc_tk, lc_tk.pdf_parameter, lc.interp_length, lc.tbin)
+
+        flux_original_sampling = np.interp(self.lc.original_time, self.lc.interp_time, lc_sim)
+
+        return LC(flux=flux_original_sampling, time=self.lc.original_time, tbin=self.lc.tbin)
+
+
+    def sample_from_psd_pdf(self, psd_parameter, pdf_parameter, N, tbin):
+        # produce Timmer&Koenig lightcurve from given PSD (step i)
+        TK = TimmerKoenig(red_noise_factor=100)
+        lc_tk = TK.sample_from_psd(psd_parameter, tbin, N, mean=self.tk_mean, std=self.tk_std, time=self.time)
+        lc_sim = self.simulate_lc(lc_tk, pdf_parameter, N, tbin)
+
+        return LC(flux=lc_sim, time=lc_tk.original_time, tbin=tbin)
+
+
+    def simulate_lc(self, lc_tk, pdf_parameter, N, tbin):
         
         # FFT of real valued lightcurve 
         lc_tk_rfft = np.fft.rfft(lc_tk.original_flux)
+
         ampl_norm = self.amplitude(lc_tk_rfft, N)
         phase_norm = np.angle(lc_tk_rfft)
-        P_j_norm = self.periodogram_from_fft(lc_tk_rfft, self.lc.tbin, lc_tk.original_flux_mean, lc_tk.original_length)
-        psd_fit_result = self.fit_PSD(self.lc._f_periodogram, P_j_norm).to_dict()
+        P_j_norm = self.periodogram_from_fft(lc_tk_rfft, tbin, lc_tk.original_flux_mean, lc_tk.original_length)
+
+        psd_fit_result = self.fit_PSD(lc_tk.f_j(), P_j_norm).to_dict()
 
         # sample white noise data from fitted PDF
-        lc_sim = sample_gamma_lognorm(*self.lc.pdf_parameter, size=N)
+        lc_sim = sample_gamma_lognorm(**pdf_parameter, size=N)
 
         assert lc_sim.all() > 0
 
@@ -154,7 +199,7 @@ class Emmanoulopoulos_Sampler:
             assert all(lc_sim > 0)
             P_j_sim = self.periodogram_from_fft(np.fft.rfft(lc_sim), tbin, lc_sim.mean(), N)
 
-            psd_fit_result_sim = self.fit_PSD(self.lc._f_periodogram, P_j_sim).to_dict()
+            psd_fit_result_sim = self.fit_PSD(lc_tk.f_j(), P_j_sim).to_dict()
 
             for k,v in psd_fit_result.items():
                 if k not in ['alpha_low', 'alpha_high', 'f_bend']:
@@ -166,19 +211,18 @@ class Emmanoulopoulos_Sampler:
                 converge = True
 
             psd_fit_result = psd_fit_result_sim
-            
+
         if self.poisson_noise:
 
             lc_sim = DEFAULT_RNG.poisson(lc_sim * tbin) / tbin
-        
+
         try:
             assert all(lc_sim >= 0)
         except AssertionError:
             print(lc_sim)
-            raise ValueError
-            
-        flux_original_sampling = np.interp(self.lc.original_time, self.lc.interp_time, lc_sim)
-        
+            raise ValueError("Negative flux points in sampled lightcurve")
 
-        return LC(flux=flux_original_sampling, time=self.lc.original_time, tbin=self.lc.tbin)
+        return lc_sim
+
+
     

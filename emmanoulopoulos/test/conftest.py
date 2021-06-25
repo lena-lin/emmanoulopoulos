@@ -65,3 +65,9 @@ def sample_fluxes_from_bending_PL(uneven_times, psd_parameter):
 def lc(uneven_times, sample_fluxes_from_bending_PL, tbin):
 
     return LC(time=uneven_times, flux=sample_fluxes_from_bending_PL, errors=0.1*sample_fluxes_from_bending_PL, tbin=tbin)
+
+
+@pytest.fixture(scope='session')
+def TK():
+    from emmanoulopoulos.emmanoulopoulos_lc_simulation import TimmerKoenig
+    return TimmerKoenig()
