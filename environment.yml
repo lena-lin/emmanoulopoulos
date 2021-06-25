@@ -1,0 +1,24 @@
+name: sim_lc
+
+channels:
+  - defaults
+
+dependencies:
+  - python=3.8
+  - ipython
+  - ipywidgets
+  - jupyter
+  - conda-forge::matplotlib=3.4
+  - notebook
+  - ipympl
+  - numpy=1.20
+  - pip
+  - scipy=1.6
+  - tqdm
+  - xlrd>=1
+  - pillow
+  - iminuit>=2
+  - pytest
+  - astropy=4.2.1
+  - pip:
+    - jupyter_contrib_nbextensions
