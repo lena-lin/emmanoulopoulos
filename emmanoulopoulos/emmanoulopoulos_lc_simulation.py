@@ -10,12 +10,19 @@ DEFAULT_RNG = np.random.default_rng(5)
 
 
 def timmer_koenig(lc, psd_model=power_spectral_density, red_noise_factor=1, alias_tbin=1):
-    
+    '''
+    Simulate lightcurve from given power spectrum as proposed by Timmer & Koenig (https://arxiv.org/pdf/1305.0304.pdf , 1995)
+    The resulting lightcurve represents only the given power spectral density (PSD)
+    but no specific probability distribution function (PDF) of the flux values.
+    TK algorithm:
+        - Create Fourier components for every frequency f_j by sampling real and imaginary part from normal distributions (mean=0, std=1).
+        - Multiply the components with the given PSD evaluated at the respective f_j: PSD(f_j, parameter)
+        - Apply inverse FFT to obtain the simulated lightcurve (this lightcurve may have negative "flux points")
+        (-Scale the simulated lightcurve to a desired mean and standard deviation, e.g. the ones from the original lightcurve)
+    '''
     psd_parameter = lc.psd_parameter.to_dict().copy()
-    
-    t_bin = lc.tbin/alias_tbin
-    
-    
+    t_bin = lc.tbin / alias_tbin
+
     # set PSD parameter c (containing Poisson noise) to 0
     # (https://arxiv.org/pdf/1305.0304.pdf page 3, section 2.1)
     psd_parameter['c'] = 0
@@ -56,11 +63,12 @@ def timmer_koenig(lc, psd_model=power_spectral_density, red_noise_factor=1, alia
     if alias_tbin != 1:
         lightcurve = lightcurve[::alias_tbin]
         
-    
+    # scale the flux values to the mean and standard deviation of the original lightcurve to avoid negative flux points
     lightcurve = (lightcurve - np.mean(lightcurve)) / np.std(lightcurve) * lc.interp_flux.std() + lc.interp_flux.mean()
     
+    # create new lightcurve from the simulated flux points
     lc_tk = LC(time=lc.interp_time, flux=lightcurve, tbin=lc.tbin)
-    # return only real part, since the imaginary part is zero
+    
     return lc_tk
 
 

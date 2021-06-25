@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from emmanoulopoulos.lightcurve import LC
-from emmanoulopoulos.simulate_lightcurves import power_spectral_density
+from emmanoulopoulos.models import power_spectral_density
 
 def PL(v, A, beta):
     p = A * np.power(v, -beta)

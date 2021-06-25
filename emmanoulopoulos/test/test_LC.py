@@ -2,7 +2,7 @@
 from iminuit import Minuit
 from iminuit.cost import UnbinnedNLL, BinnedNLL
 import numpy as np
-from emmanoulopoulos.simulate_lightcurves import power_spectral_density
+from emmanoulopoulos.emmanoulopoulos_lc_simulation import power_spectral_density
 from scipy.stats import norm, poisson, lognorm, gamma
 
 
