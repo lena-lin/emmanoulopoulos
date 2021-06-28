@@ -31,7 +31,8 @@ class TimmerKoenig:
         N = lc.interp_length
         even_sampled_fluxes = self._run_timmer_koenig(psd_parameter, t_bin, N)
         # scale fluxes to mean and std of original lightcurve
-        lightcurve = (even_sampled_fluxes - np.mean(even_sampled_fluxes)) / np.std(even_sampled_fluxes) * lc.interp_flux.std() + lc.interp_flux.mean()
+        # lightcurve = (even_sampled_fluxes - np.mean(even_sampled_fluxes)) / np.std(even_sampled_fluxes) * lc.interp_flux.std() + lc.interp_flux.mean()
+        lightcurve = even_sampled_fluxes
 
         lc_tk = LC(original_time=lc.interp_time, original_flux=lightcurve, tbin=lc.tbin)
     
@@ -144,7 +145,7 @@ class Emmanoulopoulos_Sampler:
         lc_tk = TK.sample_from_lc(lc=lc)
         lc_sim = self.simulate_lc(lc_tk, lc.pdf_parameter.to_dict(), lc.interp_length, lc.tbin)
 
-        flux_original_sampling = np.interp(lc.original_time, lc.interp_time, lc_sim)
+        flux_original_sampling = np.interp(lc.original_time, lc.interp_time, lc_sim) * lc.original_flux.max() / 10
 
         return LC(original_flux=flux_original_sampling, original_time=lc.original_time, tbin=lc.tbin)
 

@@ -55,8 +55,16 @@ def pdf_gamma_lognorm(x, a, s, loc, scale, p):
 
 def sample_gamma_lognorm(a, s, loc, scale, p, size, rng=None,):
     rng = rng or DEFAULT_RNG
-
+    
     size1 = rng.poisson(p * size)
     size2 = size - size1
+
+    if size1 < 0:
+        size1 = 0
+        size2 = size
+
+    if size2 < 0:
+        size2 = 0
+        size1 = size
     
     return np.append(gamma.rvs(a=a, size=size1, random_state=rng), lognorm.rvs(s=s, loc=loc, scale=scale, size=size2, random_state=rng))

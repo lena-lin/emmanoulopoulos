@@ -57,7 +57,11 @@ class LC:
 
     @property
     def interp_flux(self):
-        return np.interp(self.interp_time.value, self.original_time.value, self.original_flux)
+        '''
+        Scale (to 10) and interpolate flux
+        '''
+        scaled_flux = self.original_flux / self.original_flux.max() * 10
+        return np.interp(self.interp_time.value, self.original_time.value, scaled_flux)
 
 
     @property

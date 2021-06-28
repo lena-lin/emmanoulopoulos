@@ -20,5 +20,6 @@ dependencies:
   - iminuit>=2
   - pytest
   - astropy=4.2.1
+  - click
   - pip:
     - jupyter_contrib_nbextensions
