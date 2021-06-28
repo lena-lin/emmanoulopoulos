@@ -1,4 +1,5 @@
-
+import astropy.units as u
+from astropy.units import UnitsError
 from iminuit import Minuit
 from iminuit.cost import UnbinnedNLL, BinnedNLL
 import numpy as np
@@ -22,21 +23,43 @@ def test_power_spectral_density():
     np.testing.assert_array_almost_equal(p, 61.698685461074916, decimal=20)
 
 
-def test_create_lc(uneven_times, sample_fluxes_from_bending_PL):
+def test_create_lc_uneven(uneven_times, sample_fluxes_from_bending_PL, tbin):
     from emmanoulopoulos.lightcurve import LC
 
-    tbin = 2
-    lc_original = LC(time=uneven_times, flux=sample_fluxes_from_bending_PL, errors=0.1*sample_fluxes_from_bending_PL, tbin=tbin)
+    lc_original = LC(original_time=uneven_times, original_flux=sample_fluxes_from_bending_PL, errors=0.1*sample_fluxes_from_bending_PL, tbin=tbin)
     
     assert lc_original.interp_length == int((uneven_times.max() - uneven_times.min()) / tbin) + 1
     assert lc_original.interp_length == 205  # results from drawn random number with fixed known seed!
+
+def test_create_lc_check_units_missing_unit(uneven_times, sample_fluxes_from_bending_PL):
+    from emmanoulopoulos.lightcurve import LC
+    tbin = 2
+    with pytest.raises(TypeError) as err:
+        lc_original = LC(original_time=uneven_times, original_flux=sample_fluxes_from_bending_PL, errors=0.1*sample_fluxes_from_bending_PL, tbin=tbin)
+    assert err.type is TypeError
+
+
+def test_create_lc_check_units_wrong_unit(uneven_times, sample_fluxes_from_bending_PL):
+    from emmanoulopoulos.lightcurve import LC
+    tbin = 2 * u.m
+    with pytest.raises(UnitsError) as err:
+        lc_original = LC(original_time=uneven_times, original_flux=sample_fluxes_from_bending_PL, errors=0.1*sample_fluxes_from_bending_PL, tbin=tbin)
+    assert err.type is UnitsError
+
+
+def test_create_lc_check_units_mismatching_units(uneven_times, sample_fluxes_from_bending_PL):
+    from emmanoulopoulos.lightcurve import LC
+    tbin = 2 * u.s
+    with pytest.raises(ValueError) as err:
+        lc_original = LC(original_time=uneven_times, original_flux=sample_fluxes_from_bending_PL, errors=0.1*sample_fluxes_from_bending_PL, tbin=tbin)
+    assert err.type is ValueError
 
 
 def test_create_lc_bad_length(uneven_times, sample_fluxes_from_bending_PL, tbin):
     from emmanoulopoulos.lightcurve import LC
 
     with pytest.raises(ValueError) as err:
-        lc = LC(time=uneven_times[:-5], flux=sample_fluxes_from_bending_PL, errors=0.1*sample_fluxes_from_bending_PL, tbin=tbin)
+        lc = LC(original_time=uneven_times[:-5], original_flux=sample_fluxes_from_bending_PL, errors=0.1*sample_fluxes_from_bending_PL, tbin=tbin)
     assert err.type is ValueError
 
 

@@ -1,3 +1,4 @@
+import astropy.units as u
 import numpy as np
 import numpy.random as rnd
 from iminuit import Minuit
@@ -32,20 +33,21 @@ class TimmerKoenig:
         # scale fluxes to mean and std of original lightcurve
         lightcurve = (even_sampled_fluxes - np.mean(even_sampled_fluxes)) / np.std(even_sampled_fluxes) * lc.interp_flux.std() + lc.interp_flux.mean()
 
-        lc_tk = LC(time=lc.interp_time, flux=lightcurve, tbin=lc.tbin)
+        lc_tk = LC(original_time=lc.interp_time, original_flux=lightcurve, tbin=lc.tbin)
     
         return lc_tk
 
 
+    @u.quantity_input(tbin=[u.day, u.s])
     def sample_from_psd(self, psd_parameter, tbin, N, mean=None, std=None, time=None):
         lightcurve = self._run_timmer_koenig(psd_parameter, tbin, N)
         if mean is not None and std is not None:
             lightcurve = (lightcurve - np.mean(lightcurve)) / np.std(lightcurve) * std + mean
 
         if not time:
-            time = np.arange(0, N*tbin, tbin)
+            time = np.arange(0, N*tbin.value, tbin.value) * tbin.unit
         
-        lc_tk = LC(time=time, flux=lightcurve, tbin=tbin)
+        lc_tk = LC(original_time=time, original_flux=lightcurve, tbin=tbin)
 
         return lc_tk
 
@@ -104,6 +106,7 @@ class Emmanoulopoulos_Sampler:
         self.time = tk_time
 
 
+    @u.quantity_input(tbin=[u.day, u.s])
     def periodogram_from_fft(self, fft_comp, tbin, mean, N):
         return (2 * tbin) / (mean**2 * N) * np.abs(fft_comp)**2
 
@@ -113,7 +116,6 @@ class Emmanoulopoulos_Sampler:
 
     
     def fit_PSD(self, f_j, P_j):
-        print(len(f_j), len(P_j))
 
         nll = UnbinnedNLL(
             data=[f_j, P_j],
@@ -135,27 +137,29 @@ class Emmanoulopoulos_Sampler:
 
     def sample_from_lc(self, lc):
 
-        N = self.lc.interp_length
-        tbin = self.lc.tbin
+        N = lc.interp_length
+        tbin = lc.tbin
         # produce Timmer&Koenig lightcurve representing the underlying PSD, but not PDF (step i)
         TK = TimmerKoenig(red_noise_factor=100)
-        lc_tk = TK.sample_from_lc(lc=self.lc)
-        lc_sim = self.simulate_lc(lc_tk, lc_tk.pdf_parameter, lc.interp_length, lc.tbin)
+        lc_tk = TK.sample_from_lc(lc=lc)
+        lc_sim = self.simulate_lc(lc_tk, lc.pdf_parameter.to_dict(), lc.interp_length, lc.tbin)
 
-        flux_original_sampling = np.interp(self.lc.original_time, self.lc.interp_time, lc_sim)
+        flux_original_sampling = np.interp(lc.original_time, lc.interp_time, lc_sim)
 
-        return LC(flux=flux_original_sampling, time=self.lc.original_time, tbin=self.lc.tbin)
+        return LC(original_flux=flux_original_sampling, original_time=lc.original_time, tbin=lc.tbin)
 
 
+    @u.quantity_input(tbin=[u.day, u.s])
     def sample_from_psd_pdf(self, psd_parameter, pdf_parameter, N, tbin):
         # produce Timmer&Koenig lightcurve from given PSD (step i)
         TK = TimmerKoenig(red_noise_factor=100)
         lc_tk = TK.sample_from_psd(psd_parameter, tbin, N, mean=self.tk_mean, std=self.tk_std, time=self.time)
         lc_sim = self.simulate_lc(lc_tk, pdf_parameter, N, tbin)
 
-        return LC(flux=lc_sim, time=lc_tk.original_time, tbin=tbin)
+        return LC(original_flux=lc_sim, original_time=lc_tk.original_time, tbin=tbin)
 
 
+    @u.quantity_input(tbin=[u.day, u.s])
     def simulate_lc(self, lc_tk, pdf_parameter, N, tbin):
         
         # FFT of real valued lightcurve 
@@ -207,14 +211,13 @@ class Emmanoulopoulos_Sampler:
                 if abs(psd_fit_result_sim[k] - v) > 0.0001:
                     break
             else:
-                print("converge")
                 converge = True
 
             psd_fit_result = psd_fit_result_sim
 
         if self.poisson_noise:
 
-            lc_sim = DEFAULT_RNG.poisson(lc_sim * tbin) / tbin
+            lc_sim = DEFAULT_RNG.poisson(lc_sim * tbin.value) / tbin.value
 
         try:
             assert all(lc_sim >= 0)

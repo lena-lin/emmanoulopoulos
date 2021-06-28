@@ -1,11 +1,12 @@
 import numpy as np
+import astropy.units as u
 
 
 def test_emmanoulopoulos():
     from emmanoulopoulos.emmanoulopoulos_lc_simulation import Emmanoulopoulos_Sampler
 
-    N = 1000
-    tbin = 1
+    N = 10000
+    tbin = 1 * u.s
 
     psd_params = {"A": 0.02, "alpha_low": 1, "alpha_high": 5, "f_bend": 0.01, "c": 0}
     pdf_params = {"a": 1, "s": 1, "loc": 0.5, "scale": 5, "p": 0.6}

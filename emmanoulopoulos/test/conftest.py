@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import astropy.units as u
 from emmanoulopoulos.lightcurve import LC
 from emmanoulopoulos.models import power_spectral_density
 
@@ -10,7 +11,7 @@ def PL(v, A, beta):
 
 @pytest.fixture(scope='session')
 def tbin():
-    return 2
+    return 2 * u.day
 
 
 @pytest.fixture(scope='session')
@@ -24,7 +25,7 @@ def uneven_times():
     tm = np.array(sorted([a + np.random.default_rng(42).poisson(a, 1)[0] for a in range(0,200)]))
     mask = (np.diff(tm) != 0)
     t = tm[1:][mask]
-    return t
+    return t * u.day
 
 
 @pytest.fixture(scope='session')
@@ -64,7 +65,7 @@ def sample_fluxes_from_bending_PL(uneven_times, psd_parameter):
 @pytest.fixture(scope='session')
 def lc(uneven_times, sample_fluxes_from_bending_PL, tbin):
 
-    return LC(time=uneven_times, flux=sample_fluxes_from_bending_PL, errors=0.1*sample_fluxes_from_bending_PL, tbin=tbin)
+    return LC(original_time=uneven_times, original_flux=sample_fluxes_from_bending_PL, errors=0.1*sample_fluxes_from_bending_PL, tbin=tbin)
 
 
 @pytest.fixture(scope='session')

@@ -1,5 +1,8 @@
+import astropy.units as u
+from astropy.units import Quantity
 import numpy as np
 from scipy.stats import gamma, lognorm
+import warnings
 
 DEFAULT_RNG = np.random.default_rng(4)
 
@@ -9,9 +12,13 @@ def power_spectral_density(f, A, alpha_low, alpha_high, f_bend, c):
     Bending Power Law as used in
     Eq. (2) of https://arxiv.org/pdf/1305.0304.pdf
     '''
-    num = A * f**(-alpha_low)
-    denom = 1 + (f / f_bend)**(alpha_high - alpha_low)
-    return num / denom + c
+    if isinstance(f, Quantity):
+        f = f.value
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        num = A * f**(-alpha_low)
+        denom = 1 + (f / f_bend)**(alpha_high - alpha_low)
+        return num / denom + c
 
 
 def periodogram_pdf(x, A, alpha_low, alpha_high, f_bend, c):

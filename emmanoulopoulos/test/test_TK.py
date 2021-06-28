@@ -1,3 +1,4 @@
+import astropy.units as u
 import pytest
 import numpy as np
 
@@ -62,7 +63,7 @@ def test_tk_sample_from_psd(TK):
 
     psd_params = {"A": 0.02, "alpha_low": 1, "alpha_high": 5, "f_bend": 0.01, "c": 0}
 
-    lc_tk = TK.sample_from_psd(psd_params, tbin=1, N=1000)
+    lc_tk = TK.sample_from_psd(psd_params, tbin=1*u.day, N=1000)
 
     fit_psd = lc_tk.fit_PSD()
 

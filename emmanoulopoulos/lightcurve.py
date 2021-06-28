@@ -1,3 +1,4 @@
+import astropy.units as u
 import numpy.fft as ft
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,16 +15,16 @@ from emmanoulopoulos.models import (
 )
 
 class LC:
-    def __init__(self, time, flux, errors=None, tbin=None):
-        if (len(time) != len(flux)):
-            raise ValueError(f"time, flux and errors must have the same length! time: {len(time)}, flux: {len(flux)}")
-
-        self.original_time = time
-        self.original_flux = flux
+    @u.quantity_input(original_time=[u.day, u.s], tbin=[u.day, u.s])
+    def __init__(self, original_time, original_flux, errors=None, tbin=None):
+        if (len(original_time) != len(original_flux)):
+            raise ValueError(f"time, flux and errors must have the same length! time: {len(original_time)}, flux: {len(original_flux)}")
+        
+        self.original_time = original_time
+        self.original_flux = original_flux
         self.tbin = tbin
+
         self.errors = errors
-        self.interp_flux_mean = np.mean(self.interp_flux)
-        self.original_flux_mean = np.mean(self.original_flux)
 
         self._f_periodogram = None
         self._periodogram = None
@@ -32,25 +33,51 @@ class LC:
         self.psd_parameter_error = None
         
         self.pdf_parameter = None
-        
+
+
+    @property
+    def tbin(self):
+        return self._tbin
+
+
+    @tbin.setter
+    def tbin(self, value):
+        if (value is not None) and (value.unit != self.original_time.unit):
+            raise ValueError(f"Units not matching! original_time: {self.original_time.unit}, tbin: {value.unit}")
+        self._tbin = value
+
+
     @property
     def interp_time(self):
-        if not self.tbin:
-            self.tbin = int(np.diff(self.time).mean())
+        if self.tbin is None:
+            self._tbin = int(np.diff(self.original_time).mean())
 
-        return np.arange(self.original_time.min(), self.original_time.max() + self.tbin, self.tbin)
+        return np.arange(self.original_time.value.min(), self.original_time.value.max() + self.tbin.value, self.tbin.value) * self.original_time.unit
+
 
     @property
     def interp_flux(self):
-        return np.interp(self.interp_time, self.original_time, self.original_flux)
-    
+        return np.interp(self.interp_time.value, self.original_time.value, self.original_flux)
+
+
     @property
     def original_length(self):
         return len(self.original_time)
-        
+
+
     @property
     def interp_length(self):
         return len(self.interp_time)
+
+
+    @property
+    def interp_flux_mean(self):
+        return np.mean(self.interp_flux)
+
+
+    @property
+    def original_flux_mean(self):
+        return np.mean(self.original_flux)
         
 
     def fft(self, flux_values=None):
