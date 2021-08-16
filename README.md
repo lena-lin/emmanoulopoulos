@@ -2,7 +2,7 @@
 
 Python 3 implementation of the method for simulating light curves as proposed by [Emmanoulopoulos et al.](https://arxiv.org/abs/1305.0304) with some extras proposed by [Max-Moerbeck et al.](https://academic.oup.com/mnras/article/445/1/437/986520). The method by Emmanoulopoulos et al. is furthermore based on the method proposed by [Timmer & Koenig](http://articles.adsabs.harvard.edu/pdf/1995A%26A...300..707T).
 
-A detailed documentation about the methods is given in [this PDF](documentation_LC_simulation.pdf).
+A detailed documentation about the methods is given in [documentation_LC_simulation.pdf](documentation_LC_simulation.pdf).
 
 Run the example script with
 
@@ -12,8 +12,8 @@ python scripts/simulate_lightcurves.py
 
 To create a light curve object, you need at least a sequence of times and flux values.
 Additionally, a bin with `tbin` for the interpolation and error values can be given.
-`tbin` must be given in units of days or seconds!
-`time` and `flux` 
+`time` and `tbin` must be given in units of days or seconds!
+
 
 ```python
 from astropy.table import Table
