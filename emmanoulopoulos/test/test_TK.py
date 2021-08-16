@@ -10,9 +10,9 @@ def test_create_tk(lc, TK):
 
     assert sim_lc.original_length == lc.interp_length
     np.testing.assert_almost_equal(sim_lc.interp_flux_mean, lc.interp_flux_mean, decimal=2)
-    np.testing.assert_allclose(fit_sim_lc["alpha_low"], fit_lc["alpha_low"], rtol=0.2)
-    np.testing.assert_allclose(fit_sim_lc["alpha_high"], fit_lc["alpha_high"], rtol=1)
-    np.testing.assert_allclose(fit_sim_lc["f_bend"], fit_lc["f_bend"], rtol=10)
+    np.testing.assert_allclose(fit_sim_lc["alpha_low"], fit_lc["alpha_low"], rtol=0.5)
+    np.testing.assert_allclose(fit_sim_lc["alpha_high"], fit_lc["alpha_high"], rtol=0.5)
+    np.testing.assert_allclose(fit_sim_lc["f_bend"], fit_lc["f_bend"], rtol=5)
 
 
 def test_tk_red_noise(lc):
@@ -23,7 +23,7 @@ def test_tk_red_noise(lc):
     fit_lc = lc.fit_PSD().to_dict()
 
     assert sim_lc.original_length == lc.interp_length
-    np.testing.assert_almost_equal(sim_lc.interp_flux_mean, lc.interp_flux_mean, decimal=2)
+    np.testing.assert_almost_equal(sim_lc.interp_flux_mean, lc.interp_flux_mean, decimal=1)
     np.testing.assert_allclose(fit_sim_lc["alpha_low"], fit_lc["alpha_low"], rtol=0.5)
     np.testing.assert_allclose(fit_sim_lc["alpha_high"], fit_lc["alpha_high"], rtol=0.5)
     np.testing.assert_allclose(fit_sim_lc["f_bend"], fit_lc["f_bend"], rtol=5)
@@ -69,8 +69,8 @@ def test_tk_sample_from_psd(TK):
 
     assert lc_tk.original_length == 1000
 
-    # np.testing.assert_allclose(fit_psd["alpha_low"], psd_params["alpha_low"], rtol=2)
+    np.testing.assert_allclose(fit_psd["alpha_low"], psd_params["alpha_low"], rtol=2)
     np.testing.assert_allclose(fit_psd["alpha_high"], psd_params["alpha_high"], rtol=0.2)
-    # np.testing.assert_almost_equal(fit_psd["f_bend"], psd_params["f_bend"], decimal=2)
-    # np.testing.assert_allclose(fit_psd["A"], psd_params["A"], rtol=0.1)
-    # np.testing.assert_allclose(fit_psd["c"], psd_params["c"], atol=0.1)
+    np.testing.assert_almost_equal(fit_psd["f_bend"], psd_params["f_bend"], decimal=2)
+    np.testing.assert_allclose(fit_psd["A"], psd_params["A"], rtol=5)
+    np.testing.assert_allclose(fit_psd["c"], psd_params["c"], atol=0.1)

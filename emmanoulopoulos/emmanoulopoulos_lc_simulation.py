@@ -24,16 +24,18 @@ class TimmerKoenig:
         self.red_noise_factor = red_noise_factor
         self.alias_tbin = alias_tbin
 
-    def sample_from_lc(self, lc):
+    def sample_from_lc(self, lc, rescale=True):
         psd_parameter = lc.psd_parameter.to_dict().copy()
         t_bin = lc.tbin / self.alias_tbin
         psd_parameter['c'] = 0
         N = lc.interp_length
         even_sampled_fluxes = self._run_timmer_koenig(psd_parameter, t_bin, N)
-        # scale fluxes to mean and std of original lightcurve
-        # lightcurve = (even_sampled_fluxes - np.mean(even_sampled_fluxes)) / np.std(even_sampled_fluxes) * lc.interp_flux.std() + lc.interp_flux.mean()
-        lightcurve = even_sampled_fluxes
 
+        if rescale:
+            # scale fluxes to mean and std of original lightcurve
+            lightcurve = (even_sampled_fluxes - np.mean(even_sampled_fluxes)) / np.std(even_sampled_fluxes) * lc.interp_flux.std() + lc.interp_flux.mean()
+        else:
+            lightcurve = even_sampled_fluxes
         lc_tk = LC(original_time=lc.interp_time, original_flux=lightcurve, tbin=lc.tbin)
     
         return lc_tk
@@ -41,6 +43,30 @@ class TimmerKoenig:
 
     @u.quantity_input(tbin=[u.day, u.s])
     def sample_from_psd(self, psd_parameter, tbin, N, mean=None, std=None, time=None):
+        '''
+        Sample light curve from PSD with Timmer&Koenig
+
+        Parameters:
+        ----------
+        psd_parameter: Dict
+            PSD Parameter for bending power law, e.g. psd_params = {"A": 0.002, "alpha_low": 1, "alpha_high": 8, "f_bend": 0.001, "c": 0}
+        tbin: astropy quantity: u.day or u.s
+            Time bin width, time between measurements for evenly sampled light curve
+        N: Int
+            Number of light curve data points.
+        mean: Float
+            Mean flux value
+        std: Float
+            Standard deviation of flux values
+        time: np.array
+            Times for flux measurements. If not given, they are calculated from N and tbin.
+
+        Returns:
+        ----------
+        lc_tk: LC object
+            Simulated light curve after Timmer & Koenig
+        
+        '''
         lightcurve = self._run_timmer_koenig(psd_parameter, tbin, N)
         if mean is not None and std is not None:
             lightcurve = (lightcurve - np.mean(lightcurve)) / np.std(lightcurve) * std + mean
@@ -137,7 +163,19 @@ class Emmanoulopoulos_Sampler:
 
 
     def sample_from_lc(self, lc):
+        '''
+        Simulate light curve from a original light curve.
 
+        Parameters:
+        ----------
+        lc: LC object
+            Original light curve as LC object (emmanoulopoulos.lightcurve)
+
+        Returns:
+        ----------
+        LC object
+            Simulated light curve following Emmanoulopoulos.
+        '''
         N = lc.interp_length
         tbin = lc.tbin
         # produce Timmer&Koenig lightcurve representing the underlying PSD, but not PDF (step i)
@@ -152,6 +190,21 @@ class Emmanoulopoulos_Sampler:
 
     @u.quantity_input(tbin=[u.day, u.s])
     def sample_from_psd_pdf(self, psd_parameter, pdf_parameter, N, tbin):
+        '''
+        Simulate light curve from a given PSD and PDF.
+
+        Parameters:
+        ----------
+        psd_parameter: Dict
+            PSD Parameter for bending power law, e.g.: psd_params = {"A": 0.002, "alpha_low": 1, "alpha_high": 8, "f_bend": 0.001, "c": 0}
+        pdf_parameter: Dict
+            PDF parameter for superposition of gamma and log-norm function, e.g.: pdf_params = {"a": 1.5, "s": 0.1, "loc": 2, "scale": 1, "p": 0.6}
+
+        Returns:
+        ----------
+        LC object
+            Simulated light curve following Emmanoulopoulos.
+        '''
         # produce Timmer&Koenig lightcurve from given PSD (step i)
         TK = TimmerKoenig(red_noise_factor=100)
         lc_tk = TK.sample_from_psd(psd_parameter, tbin, N, mean=self.tk_mean, std=self.tk_std, time=self.time)
@@ -162,6 +215,22 @@ class Emmanoulopoulos_Sampler:
 
     @u.quantity_input(tbin=[u.day, u.s])
     def simulate_lc(self, lc_tk, pdf_parameter, N, tbin):
+        '''
+        Run Emmanoulopoulos with given Timmer&Koenig light curve.
+
+        Parameters:
+        ----------
+        lc_tk: LC object
+            Light curve after Timmer&Koenig
+        pdf_parameter: Dict
+            PDF parameter for superposition of gamma and log-norm function, e.g.: pdf_params = {"a": 1.5, "s": 0.1, "loc": 2, "scale": 1, "p": 0.6}
+
+        Returns:
+        ----------
+        LC object
+            Simulated light curve following Emmanoulopoulos.
+
+        '''
         
         # FFT of real valued lightcurve 
         lc_tk_rfft = np.fft.rfft(lc_tk.original_flux)
